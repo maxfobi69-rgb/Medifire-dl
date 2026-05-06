@@ -1,21 +1,23 @@
-name: دانلود از مدیافایر و ذخیره در مخزن
+name: دانلود از مدیافایر و ذخیره در مخزن (حجم بالا به‌صورت بایگانی چندبخشی)
 on:
-  workflow_dispatch: # اجرای دستی از تب Actions
+  workflow_dispatch:
 
 jobs:
   download-and-commit:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # 👈 اجازه نوشتن روی مخزن (کامیت و پوش)
+      contents: write
     steps:
       - name: دریافت سورس مخزن
         uses: actions/checkout@v4
 
-      - name: نصب پایتون و وابستگی‌ها
+      - name: نصب ابزارهای مورد نیاز (پایتون و 7-Zip)
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - run: pip install requests beautifulsoup4
+      - run: |
+          pip install requests beautifulsoup4
+          sudo apt-get update && sudo apt-get install -y p7zip-full
 
       - name: دانلود فایل از مدیافایر
         run: |
@@ -24,22 +26,21 @@ jobs:
 
           url = "https://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
           headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-          
-          # دریافت صفحه و استخراج لینک مستقیم
+
           resp = requests.get(url, headers=headers)
           html = resp.text
           match = re.search(r'href="(https?://download\d+\.mediafire\.com/[^"]+)"', html)
           if not match:
               match = re.search(r'(https?://download\d+\.mediafire\.com/[^\s"\']+)', html)
           if not match:
-              raise Exception("لینک مستقیم یافت نشد. مطمئن شوید فایل عمومی است و لینک با https:// شروع می‌شود.")
-
+              raise Exception("لینک مستقیم یافت نشد. فایل عمومی و لینک https را بررسی کنید.")
+          
           download_link = match.group(1).replace("&amp;", "&")
           print(f"لینک مستقیم: {download_link}")
 
-          os.makedirs("downloads", exist_ok=True)
-          file_name = "Phyre_Engine.7z"   # یا از لینک استخراج کنید
-          file_path = os.path.join("downloads", file_name)
+          os.makedirs("downloaded_temp", exist_ok=True)
+          file_name = "Phyre_Engine.7z"
+          file_path = os.path.join("downloaded_temp", file_name)
 
           print("در حال دانلود...")
           with requests.get(download_link, headers=headers, stream=True) as r:
@@ -47,45 +48,41 @@ jobs:
               with open(file_path, 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
                       f.write(chunk)
-          print(f"فایل در {file_path} ذخیره شد.")
+          print("دانلود کامل شد.")
           PYEOF
 
-      - name: آماده‌سازی فایل‌ها برای کامیت (تقسیم در صورت نیاز)
+      - name: آماده‌سازی فایل‌ها و بایگانی چندبخشی در پوشه download
         run: |
+          # پوشه download را از قبل خالی می‌کنیم
+          rm -rf download
           mkdir -p download
-          # پاک کردن محتویات قبلی پوشه download اگر وجود داشت
-          rm -rf download/*
-          
-          # اگر فایل اصلی را در downloads داریم
-          if [ -f downloads/Phyre_Engine.7z ]; then
-            FILESIZE=$(stat -c%s downloads/Phyre_Engine.7z)
-            # اگر بزرگتر از 50 مگابایت (52428800 بایت) باشد، تقسیم کن
-            if [ $FILESIZE -gt 52428800 ]; then
-              echo "حجم فایل بیش از 50 مگابایت است. در حال تقسیم..."
-              cd download
-              split -b 50M ../downloads/Phyre_Engine.7z Phyre_Engine.7z.part-
-              cd ..
+
+          if [ -f downloaded_temp/Phyre_Engine.7z ]; then
+            FILESIZE=$(stat -c%s downloaded_temp/Phyre_Engine.7z)
+            echo "حجم فایل: $FILESIZE بایت"
+            if [ $FILESIZE -gt 52428800 ]; then   # بزرگتر از ۵۰ مگابایت
+              echo "حجم فایل بیش از 50MB است. ساخت بایگانی چندبخشی 7z..."
+              # با پسوند .7z و حجم هر بخش ۵۰ مگابایت
+              7z a -v50m -mx0 "download/Phyre_split.7z" "downloaded_temp/Phyre_Engine.7z"
+              # خروجی پیشفرض: Phyre_split.7z.001, Phyre_split.7z.002, ...
+              echo "بایگانی چندبخشی ساخته شد:"
+              ls -lh download/
             else
-              # مستقیماً کپی کن
-              cp downloads/Phyre_Engine.7z download/Phyre_Engine.7z
+              echo "حجم کمتر از 50MB است. کپی مستقیم فایل..."
+              cp downloaded_temp/Phyre_Engine.7z download/Phyre_Engine.7z
             fi
           else
             echo "فایل دانلود شده پیدا نشد!" && exit 1
           fi
-          # نمایش وضعیت پوشه download
-          ls -lh download/
 
       - name: Commit و Push فایل‌ها به مخزن
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
           git add download/
-          # اگر تغییری وجود نداشت، خارج شو
           if git diff --staged --quiet; then
             echo "هیچ فایل جدیدی برای کامیت وجود ندارد."
             exit 0
           fi
-          
-          git commit -m "دانلود فایل از مدیافایر و ذخیره در پوشه download [skip ci]"
+          git commit -m "بایگانی فایل مدیافایر در پوشه download [skip ci]"
           git push
