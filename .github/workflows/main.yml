@@ -1,26 +1,28 @@
-name: Download MediaFire File
-
+name: دانلود فایل از MediaFire
 on:
-  workflow_dispatch: # اجازهٔ اجرای دستی
+  workflow_dispatch: # اجازه اجرای دستی
 
 jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Python
+      - name: نصب پایتون
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install yt-dlp
-        run: pip install yt-dlp
+      - name: نصب mediafiredl
+        run: pip install mediafiredl
 
-      - name: Download from MediaFire
+      - name: دانلود فایل
         run: |
-          yt-dlp -o "downloaded_file.%(ext)s" "https://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
+          python -c "
+          from mediafiredl import MediafileDL
+          MediafileDL.Download('http://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z')
+          "
 
-      - name: Upload Artifact
+      - name: آپلود فایل دانلود شده
         uses: actions/upload-artifact@v4
         with:
-          name: downloaded-file
-          path: downloaded_file.*
+          name: Phyre_Engine
+          path: "*.7z"
