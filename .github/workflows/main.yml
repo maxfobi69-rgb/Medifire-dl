@@ -1,27 +1,53 @@
-name: دانلود فایل از MediaFire
+name: دانلود سفارشی MediaFire
 on:
-  workflow_dispatch: # اجازه اجرای دستی
+  workflow_dispatch:
 
 jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      - name: نصب پایتون
+      - name: نصب پایتون و کتابخانه‌ها
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-
-      - name: نصب mediafiredl
-        run: pip install mediafiredl
+      - run: pip install requests beautifulsoup4
 
       - name: دانلود فایل
         run: |
-          python -c "
-          from mediafiredl import MediafileDL
-          MediafileDL.Download('http://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z')
-          "
+          python << 'EOF'
+          import requests
+          from bs4 import BeautifulSoup
+          import re
+          import os
 
-      - name: آپلود فایل دانلود شده
+          url = "http://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
+          headers = {"User-Agent": "Mozilla/5.0"}
+
+          # دریافت صفحه دانلود
+          response = requests.get(url, headers=headers)
+          soup = BeautifulSoup(response.text, 'html.parser')
+
+          # استخراج لینک مستقیم
+          download_link = None
+          for a in soup.find_all('a', href=True):
+              if 'download' in a['href'] or 'mediafire.com' in a['href']:
+                  download_link = a['href']
+                  break
+
+          if not download_link:
+              raise Exception("لینک مستقیم پیدا نشد")
+
+          # دانلود فایل
+          file_response = requests.get(download_link, headers=headers, stream=True)
+          file_name = "Phyre_Engine.7z"
+          with open(file_name, 'wb') as f:
+              for chunk in file_response.iter_content(chunk_size=8192):
+                  f.write(chunk)
+
+          print(f"فایل با موفقیت در {file_name} ذخیره شد")
+          EOF
+
+      - name: آپلود فایل
         uses: actions/upload-artifact@v4
         with:
           name: Phyre_Engine
