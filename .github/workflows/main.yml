@@ -1,6 +1,6 @@
-name: دانلود سفارشی MediaFire
+name: دانلود سفارشی از مدیافایر
 on:
-  workflow_dispatch:
+  workflow_dispatch: # اجرای دستی از تب Actions
 
 jobs:
   download:
@@ -12,43 +12,50 @@ jobs:
           python-version: '3.x'
       - run: pip install requests beautifulsoup4
 
-      - name: دانلود فایل
+      - name: دانلود فایل و ذخیره در پوشه downloads
         run: |
           python << 'EOF'
-          import requests
-          from bs4 import BeautifulSoup
-          import re
-          import os
+          import requests, re, os
 
-          url = "http://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
-          headers = {"User-Agent": "Mozilla/5.0"}
+          # آدرس فایل (حتماً https باشد)
+          url = "https://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
+          headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-          # دریافت صفحه دانلود
-          response = requests.get(url, headers=headers)
-          soup = BeautifulSoup(response.text, 'html.parser')
+          # دریافت صفحه
+          resp = requests.get(url, headers=headers)
+          html = resp.text
 
-          # استخراج لینک مستقیم
-          download_link = None
-          for a in soup.find_all('a', href=True):
-              if 'download' in a['href'] or 'mediafire.com' in a['href']:
-                  download_link = a['href']
-                  break
+          # استخراج لینک مستقیم با regex
+          match = re.search(r'href="(https?://download\d+\.mediafire\.com/[^"]+)"', html)
+          if not match:
+              # روش دوم: جستجوی هر لینکی که با download...mediafire.com شروع شود
+              match = re.search(r'(https?://download\d+\.mediafire\.com/[^\s"\']+)', html)
 
-          if not download_link:
-              raise Exception("لینک مستقیم پیدا نشد")
+          if not match:
+              raise Exception("لینک مستقیم پیدا نشد. لطفاً از https استفاده کنید و فایل را عمومی کنید.")
 
-          # دانلود فایل
-          file_response = requests.get(download_link, headers=headers, stream=True)
-          file_name = "Phyre_Engine.7z"
-          with open(file_name, 'wb') as f:
-              for chunk in file_response.iter_content(chunk_size=8192):
-                  f.write(chunk)
+          download_link = match.group(1).replace("&amp;", "&")
+          print(f"لینک مستقیم پیدا شد: {download_link}")
 
-          print(f"فایل با موفقیت در {file_name} ذخیره شد")
+          # ایجاد پوشه downloads
+          os.makedirs("downloads", exist_ok=True)
+
+          # دریافت نام فایل از URL یا حدس
+          file_name = download_link.split("/")[-1] or "Phyre_Engine.7z"
+          file_path = os.path.join("downloads", file_name)
+
+          # دانلود
+          print("در حال دانلود...")
+          with requests.get(download_link, headers=headers, stream=True) as r:
+              r.raise_for_status()
+              with open(file_path, 'wb') as f:
+                  for chunk in r.iter_content(chunk_size=8192):
+                      f.write(chunk)
+          print(f"فایل با موفقیت در {file_path} ذخیره شد.")
           EOF
 
-      - name: آپلود فایل
+      - name: آپلود پوشه downloads به عنوان Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Phyre_Engine
-          path: "*.7z"
+          path: downloads/   # کل پوشه آپلود می‌شود
