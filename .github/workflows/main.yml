@@ -1,29 +1,26 @@
 name: Download MediaFire File
 
 on:
-  workflow_dispatch: # اجازه اجرای دستی
+  workflow_dispatch: # اجازهٔ اجرای دستی
 
 jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install mf-dl
-        run: pip install git+https://github.com/NicKoehler/mediafire_bulk_downloader.git
+      - name: Install yt-dlp
+        run: pip install yt-dlp
 
-      - name: Download MediaFire File
+      - name: Download from MediaFire
         run: |
-          python -m mediafire_bulk_downloader "http://download2294.mediafire.com/w9g3ghjn88lg18kfuAe_cFBEdVHXWq52m2Ks1spbcYFiAv5zU_ORti5DB_ZeC05wBG-ptidBGrGNqitVoHYGDpdYqJwOk3LqtxnJ156hoHnzrXpSYFNTsYxER9yR56X6XIjX1y3B-MHjuxQqzko6qjMP9EmTUHYu6nyyt2YMpYvH/h5m8k0iicb8d4zu/Phyre_Engine.7z"
+          yt-dlp -o "downloaded_file.%(ext)s" "http://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: my-downloaded-file
-          path: downloaded_files/
+          name: downloaded-file
+          path: downloaded_file.*
