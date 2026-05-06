@@ -17,7 +17,7 @@ jobs:
 
       - name: Download from MediaFire
         run: |
-          yt-dlp -o "downloaded_file.%(ext)s" "http://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
+          yt-dlp -o "downloaded_file.%(ext)s" "https://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
