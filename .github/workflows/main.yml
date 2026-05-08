@@ -24,7 +24,7 @@ jobs:
           python << 'PYEOF'
           import requests, re, os
 
-          url = "https://www.mediafire.com/file/h5m8k0iicb8d4zu/Phyre_Engine.7z"
+          url = "https://www.mediafire.com/file/4vkyo977w7yxrjj/install_ps3tools_4.8.1.exe/file"
           headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
           resp = requests.get(url, headers=headers)
